@@ -340,7 +340,7 @@ function VehicleCard({ vehicle, onOpen, vatRate }) {
       )}
       <div className="vehicle-content">
         {vehicle.isDemo ? <span className="demo-badge">DEMO · NON DISPONIBILE</span> : null}
-        <p className="vehicle-year">{isRental(vehicle) ? 'NOLEGGIO' : 'VENDITA'}</p>
+        <p className="vehicle-type">{isRental(vehicle) ? 'Noleggio' : 'Vendita'}</p>
         <p className="vehicle-year">{vehicle.year}{vehicle.bodyType ? ` · ${vehicle.bodyType}` : ''}</p>
         <h3>{vehicle.brand} {vehicle.model}</h3>
         <div className="vehicle-highlights">
@@ -1271,14 +1271,21 @@ function App() {
                 <p className="eyebrow">PELUSO GROUP · AUTOMOBILI</p>
                 <h1>La tua prossima auto,<br /><span>senza complicazioni.</span></h1>
                 <p className="hero-text">Una selezione di auto, informazioni chiare e un team pronto ad aiutarti.</p>
-                <button className="button button-dark" onClick={() => navigateHome('auto')}>Scopri le auto <span aria-hidden="true">↓</span></button>
+                <div className="hero-actions">
+                  <button className="button button-dark" onClick={() => navigateHome('auto')}>Scopri le auto <span aria-hidden="true">↗</span></button>
+                  <button className="hero-contact-link" onClick={() => navigateHome('contatti')}>Parla con noi <span aria-hidden="true">→</span></button>
+                </div>
+                <div className="hero-details" aria-label="Informazioni sulla concessionaria">
+                  <span><strong>{rentalSupported ? 'Vendita e noleggio' : 'Auto in vendita'}</strong>Una selezione da scoprire</span>
+                  <span><strong>Cellole, CE</strong>Vieni a trovarci</span>
+                </div>
               </div>
               <div className="hero-aside">
                 <div className="hero-brand">
                   {logoVisible ? <img src={siteSettings.logoUrl} alt="" onError={() => setLogoVisible(false)} /> : <span>PELUSO GROUP</span>}
                 </div>
                 <div className="hero-caption">
-                  <span>LA NOSTRA SELEZIONE</span>
+                  <span>LA NOSTRA VETRINA</span>
                   {vehiclesLoaded && !pageError ? <strong>{String(vehicles.length).padStart(2, '0')} auto in selezione</strong> : <strong>Scopri la vetrina</strong>}
                 </div>
               </div>
