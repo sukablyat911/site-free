@@ -196,6 +196,18 @@ function specKey(value) {
   return String(value || '').trim().toLocaleLowerCase('it-IT');
 }
 
+function getVehicleFilterOptions(vehicles) {
+  const uniqueSpecs = (key) => [...vehicles.map((item) => item[key]).filter(Boolean)
+    .reduce((values, value) => values.has(specKey(value)) ? values : values.set(specKey(value), value), new Map()).values()]
+    .sort((a, b) => a.localeCompare(b, 'it'));
+  return {
+    brand: uniqueSpecs('brand'),
+    fuel: uniqueSpecs('fuel'),
+    bodyType: uniqueSpecs('bodyType'),
+    transmission: uniqueSpecs('transmission'),
+  };
+}
+
 function vatDescription(vehicle, vatRate) {
   if (vehicle.vatMode === 'exclusive') return `IVA esclusa · ${formatVatRate(vatRate)}% da aggiungere`;
   if (vehicle.vatMode === 'not-applied') return 'IVA non applicata';
@@ -685,6 +697,7 @@ function App() {
   const [deleteError, setDeleteError] = useState('');
   const [dealerContactVehicle, setDealerContactVehicle] = useState(null);
   const [catalogFilters, setCatalogFilters] = useState({ search: '', listingType: '', brand: '', fuel: '', bodyType: '', transmission: '', maxPrice: '', sort: 'newest' });
+  const [rentalFilters, setRentalFilters] = useState({ search: '', brand: '', fuel: '', bodyType: '', transmission: '', maxPrice: '', sort: 'newest' });
 
   const selectedVehicle = vehicles.find((vehicle) => vehicle._id === selectedVehicleId);
   const priceFilterType = catalogFilters.listingType || (vehicles.some(isRental) ? '' : 'sale');
@@ -723,17 +736,27 @@ function App() {
       return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
     });
   }, [catalogFilters, vehicles]);
-  const catalogOptions = useMemo(() => {
-    const uniqueSpecs = (key) => [...vehicles.map((item) => item[key]).filter(Boolean)
-      .reduce((values, value) => values.has(specKey(value)) ? values : values.set(specKey(value), value), new Map()).values()]
-      .sort((a, b) => a.localeCompare(b, 'it'));
-    return {
-      brand: uniqueSpecs('brand'),
-      fuel: uniqueSpecs('fuel'),
-      bodyType: uniqueSpecs('bodyType'),
-      transmission: uniqueSpecs('transmission'),
-    };
-  }, [vehicles]);
+  const rentalVehicles = useMemo(() => vehicles.filter(isRental), [vehicles]);
+  const filteredRentalVehicles = useMemo(() => {
+    const query = rentalFilters.search.trim().toLocaleLowerCase('it-IT');
+    const filtered = rentalVehicles.filter((vehicle) => (
+      (!query || `${vehicle.brand} ${vehicle.model} ${vehicle.year}`.toLocaleLowerCase('it-IT').includes(query))
+      && (!rentalFilters.brand || vehicle.brand === rentalFilters.brand)
+      && (!rentalFilters.fuel || specKey(vehicle.fuel) === specKey(rentalFilters.fuel))
+      && (!rentalFilters.bodyType || specKey(vehicle.bodyType) === specKey(rentalFilters.bodyType))
+      && (!rentalFilters.transmission || specKey(vehicle.transmission) === specKey(rentalFilters.transmission))
+      && (!rentalFilters.maxPrice || vehicle.price <= Number(rentalFilters.maxPrice))
+    ));
+    return [...filtered].sort((a, b) => {
+      if (rentalFilters.sort === 'price-asc') return a.price - b.price;
+      if (rentalFilters.sort === 'price-desc') return b.price - a.price;
+      if (rentalFilters.sort === 'mileage') return a.mileage - b.mileage;
+      if (rentalFilters.sort === 'year') return b.year - a.year;
+      return new Date(b.createdAt || 0) - new Date(a.createdAt || 0);
+    });
+  }, [rentalFilters, rentalVehicles]);
+  const rentalOptions = useMemo(() => getVehicleFilterOptions(rentalVehicles), [rentalVehicles]);
+  const catalogOptions = useMemo(() => getVehicleFilterOptions(vehicles), [vehicles]);
 
   const loadVehicles = useCallback(async () => {
     try {
@@ -1228,6 +1251,7 @@ function App() {
           )}
         </a>
         <nav aria-label="Navigazione principale">
+          <a href="/#noleggio" onClick={(event) => { event.preventDefault(); navigateHome('noleggio'); }}>Noleggio</a>
           <a href="/#auto" onClick={(event) => { event.preventDefault(); navigateHome('auto'); }}>Auto</a>
           <a href="/#chi-siamo" onClick={(event) => { event.preventDefault(); navigateHome('chi-siamo'); }}>Chi siamo</a>
           <a href="/#contatti" onClick={(event) => { event.preventDefault(); navigateHome('contatti'); }}>Contatti</a>
@@ -1269,14 +1293,14 @@ function App() {
             <section className="hero">
               <div className="hero-copy">
                 <p className="eyebrow">PELUSO GROUP · AUTOMOBILI</p>
-                <h1>La tua prossima auto,<br /><span>senza complicazioni.</span></h1>
-                <p className="hero-text">Una selezione di auto, informazioni chiare e un team pronto ad aiutarti.</p>
+                <h1>La tua prossima auto,<br /><span>quando ti serve.</span></h1>
+                <p className="hero-text">Scopri le auto a noleggio, indicaci il periodo e ti confermeremo disponibilità e condizioni.</p>
                 <div className="hero-actions">
-                  <button className="button button-dark" onClick={() => navigateHome('auto')}>Scopri le auto <span aria-hidden="true">↗</span></button>
-                  <button className="hero-contact-link" onClick={() => navigateHome('contatti')}>Parla con noi <span aria-hidden="true">→</span></button>
+                  <button className="button button-dark" onClick={() => navigateHome('noleggio')}>Scopri i noleggi <span aria-hidden="true">↗</span></button>
+                  <button className="hero-contact-link" onClick={() => navigateHome('auto')}>Tutto il catalogo <span aria-hidden="true">→</span></button>
                 </div>
                 <div className="hero-details" aria-label="Informazioni sulla concessionaria">
-                  <span><strong>{rentalSupported ? 'Vendita e noleggio' : 'Auto in vendita'}</strong>Una selezione da scoprire</span>
+                  <span><strong>{rentalSupported ? 'Noleggio e vendita' : 'Auto in vendita'}</strong>Tariffe al giorno, su richiesta</span>
                   <span><strong>Cellole, CE</strong>Vieni a trovarci</span>
                 </div>
               </div>
@@ -1291,13 +1315,65 @@ function App() {
               </div>
             </section>
 
+            <section className="rental-showcase" id="noleggio" aria-labelledby="rental-showcase-title">
+              <div className="section-wrap">
+                <div className="section-heading">
+                  <div>
+                    <p className="eyebrow">IL NOLEGGIO PELUSOGROUP</p>
+                    <h2 id="rental-showcase-title">Un’auto pronta quando ti serve.</h2>
+                  </div>
+                  <p>Scegli una vettura, inviaci le date di ritiro e riconsegna: la concessionaria ti confermerà disponibilità e condizioni, senza impegno.</p>
+                </div>
+                <div className="rental-showcase-benefits" aria-label="Come funziona il noleggio">
+                  <span><strong>01</strong> Tariffa giornaliera</span>
+                  <span><strong>02</strong> Periodo su misura</span>
+                  <span><strong>03</strong> Conferma diretta</span>
+                </div>
+                {!vehiclesLoaded && !pageError ? <div className="empty-state">Caricamento auto a noleggio…</div> : null}
+                {pageError ? <div className="empty-state">La disponibilità delle auto a noleggio non è al momento caricabile.</div> : null}
+                {vehiclesLoaded && !pageError && rentalVehicles.length === 0 ? <div className="empty-state">Al momento non ci sono auto a noleggio pubblicate.</div> : null}
+                {vehiclesLoaded && !pageError && rentalVehicles.length > 0 ? (
+                  <>
+                    <div className="catalog-filters rental-filters" aria-label="Filtra auto a noleggio">
+                      <label className="catalog-search">Cerca auto<input type="search" value={rentalFilters.search} onChange={(event) => setRentalFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Marca, modello o anno" /></label>
+                      <label>Marca<select value={rentalFilters.brand} onChange={(event) => setRentalFilters((current) => ({ ...current, brand: event.target.value }))}><option value="">Tutte le marche</option>{rentalOptions.brand.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+                      <label>Alimentazione<select value={rentalFilters.fuel} onChange={(event) => setRentalFilters((current) => ({ ...current, fuel: event.target.value }))}><option value="">Tutte</option>{rentalOptions.fuel.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+                      <label>Carrozzeria<select value={rentalFilters.bodyType} onChange={(event) => setRentalFilters((current) => ({ ...current, bodyType: event.target.value }))}><option value="">Tutte</option>{rentalOptions.bodyType.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+                      <label>Cambio<select value={rentalFilters.transmission} onChange={(event) => setRentalFilters((current) => ({ ...current, transmission: event.target.value }))}><option value="">Tutti</option>{rentalOptions.transmission.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
+                      <label>Tariffa massima al giorno<input type="number" value={rentalFilters.maxPrice} onChange={(event) => setRentalFilters((current) => ({ ...current, maxPrice: event.target.value }))} min="0" step="0.01" placeholder="€" /></label>
+                      <label>Ordina<select value={rentalFilters.sort} onChange={(event) => setRentalFilters((current) => ({ ...current, sort: event.target.value }))}><option value="newest">Più recenti</option><option value="price-asc">Tariffa crescente</option><option value="price-desc">Tariffa decrescente</option><option value="mileage">Minor chilometraggio</option><option value="year">Anno più recente</option></select></label>
+                    </div>
+                    <div className="catalog-results-bar rental-results-bar">
+                      <span>{filteredRentalVehicles.length} {filteredRentalVehicles.length === 1 ? 'auto trovata' : 'auto trovate'}</span>
+                      <button type="button" className="text-link" onClick={() => setRentalFilters({ search: '', brand: '', fuel: '', bodyType: '', transmission: '', maxPrice: '', sort: 'newest' })}>Azzera filtri</button>
+                    </div>
+                    {filteredRentalVehicles.length === 0 ? (
+                      <div className="empty-state">Nessuna auto a noleggio corrisponde ai filtri selezionati.</div>
+                    ) : (
+                      <div className="vehicle-grid">
+                        {filteredRentalVehicles.slice(0, 3).map((vehicle) => <VehicleCard key={vehicle._id} vehicle={vehicle} onOpen={openVehicle} vatRate={siteSettings.vatRate} />)}
+                      </div>
+                    )}
+                    <div className="rental-showcase-actions">
+                      <button className="button button-dark" type="button" onClick={() => {
+                        setCatalogFilters({ search: '', listingType: 'rental', brand: '', fuel: '', bodyType: '', transmission: '', maxPrice: '', sort: 'newest' });
+                        navigateHome('auto');
+                      }}>
+                        Vedi tutte le auto a noleggio <span aria-hidden="true">→</span>
+                      </button>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </section>
+
             <section className="inventory section-wrap" id="auto">
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">LA NOSTRA SELEZIONE</p>
-                  <h2>Auto disponibili</h2>
+                  <p className="eyebrow">VENDITA E NOLEGGIO</p>
+                  <h2>Tutto il catalogo</h2>
                 </div>
-                <p>{vehicles.length} {vehicles.length === 1 ? 'auto selezionata' : 'auto selezionate'} · Informazioni chiare, senza fronzoli.</p>
+                <p>{vehicles.length} {vehicles.length === 1 ? 'auto disponibile' : 'auto disponibili'} · Esplora la selezione completa.</p>
               </div>
               <div className="catalog-filters" aria-label="Filtra catalogo">
                 <label className="catalog-search">Cerca auto<input type="search" value={catalogFilters.search} onChange={(event) => setCatalogFilters((current) => ({ ...current, search: event.target.value }))} placeholder="Marca, modello o anno" /></label>
@@ -1418,6 +1494,7 @@ function App() {
             <p className="footer-legal">Partita IVA {dealership.vatNumber}</p>
           </div>
           <nav className="footer-links" aria-label="Link nel piè di pagina">
+            <a href="/#noleggio" onClick={(event) => { event.preventDefault(); navigateHome('noleggio'); }}>Noleggio</a>
             <a href="/#auto" onClick={(event) => { event.preventDefault(); navigateHome('auto'); }}>Auto</a>
             <a href="/#chi-siamo" onClick={(event) => { event.preventDefault(); navigateHome('chi-siamo'); }}>Chi siamo</a>
             <a href="/#contatti" onClick={(event) => { event.preventDefault(); navigateHome('contatti'); }}>Contatti</a>

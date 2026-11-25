@@ -8,6 +8,7 @@
     "dev": "node scripts/dev.js",
     "build": "npm --prefix client run build",
     "start": "node server/server.js",
+    "reset:admin": "node scripts/resetAdminPassword.js",
     "import:pro": "node server/scripts/importProVehicles.js",
     "seed:pictures": "node server/scripts/seedPicturesCars.js",
     "remove:demo": "node server/scripts/removeDemoVehicles.js"

@@ -29,6 +29,16 @@ node -e "require('bcryptjs').hash(process.argv[1], 12).then(console.log)" "scegl
 node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
 ```
 
+### Password admin dimenticata
+
+La password non è recuperabile perché nel file `.env` viene salvato solo il suo hash bcrypt. Per impostarne una nuova in locale, senza mostrare la password o salvarla nella cronologia del terminale, esegui:
+
+```powershell
+npm run reset:admin
+```
+
+Inserisci e conferma la nuova password quando richiesto, quindi riavvia il backend o `npm run dev`. Il comando aggiorna soltanto `ADMIN_PASSWORD_HASH` nel file `.env`; il nome utente admin resta quello configurato in `ADMIN_USERNAME`.
+
 Avvia frontend e backend:
 
 ```powershell
